@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-  <title>京东卡领取连通性测试</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://bjjralybdcuczwllxbvo.supabase.co; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>2026年10月京东卡领取</title>
   <style>
     :root { color-scheme: light; font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #243d32; background: #f4f7f5 }
     * { box-sizing: border-box }
@@ -21,12 +21,16 @@
     input, button { font: inherit; min-width: 0; padding: 13px; border-radius: 8px }
     input { background: white; border: 1px solid #cad9d0; margin-bottom: 6px }
     button { border: 0; background: #256c4a; color: white; cursor: pointer }
+    button:disabled { opacity: .6; cursor: default }
     .secondary { background: transparent; color: #256c4a; border: 1px solid #adc7b7 }
     a { color: #256c4a }
     :focus-visible { outline: 2px solid #256c4a; outline-offset: 3px }
     article { background: white; border: 1px solid #dde7e0; padding: 16px; margin: 12px 0; border-radius: 10px }
     article h3 { margin: 0 0 10px; font-size: 17px }
     article p { margin: 5px 0; overflow-wrap: anywhere }
+    .card-value { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 12px 0 }
+    .card-value code { min-width: 0; font-size: 15px; overflow-wrap: anywhere; user-select: all }
+    .card-value button { flex: none; padding: 8px 10px; font-size: 14px }
     h2 { font-size: 19px }
     .error { color: #a22828 }
     [hidden] { display: none !important }
@@ -35,49 +39,157 @@
 <body>
   <header>员工福利 · 京东卡领取</header>
   <main>
-    <h1>京东卡领取连通性测试</h1>
-    <p>此页用于在手机流量和微信中测试 GitHub Pages 访问。请使用下方虚拟身份查询。</p>
-    <p class="note">姓名填「测试员工」，工号填「TEST001」。</p>
+    <h1>2026年10月京东卡领取</h1>
+    <p>请输入订单上的员工姓名和工号，查询本次分配给您的京东卡。</p>
+    <p class="note" id="status" role="status">正在连接领取服务…</p>
+    <button class="secondary" id="retry" type="button" hidden>重新连接</button>
     <form id="claim">
       <label for="employee-name">姓名</label>
-      <input id="employee-name" type="text" required autocomplete="off" maxlength="30" placeholder="测试员工">
+      <input id="employee-name" type="text" required autocomplete="off" maxlength="200" placeholder="请输入员工姓名">
       <label for="employee-number">工号</label>
-      <input id="employee-number" type="text" required autocomplete="off" maxlength="30" placeholder="TEST001">
-      <button type="submit">查询虚拟卡片</button>
+      <input id="employee-number" type="text" required autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" placeholder="请输入完整工号">
+      <button id="submit" type="submit" disabled>查询我的京东卡</button>
     </form>
     <p class="error" id="error" role="alert" hidden></p>
     <section id="result" aria-live="polite" hidden>
-      <h2>查询成功 · 2 张虚拟卡</h2>
-      <article><h3>虚拟卡 1</h3><p>卡号 DEMO-001</p><p>卡密 SAMPLE-001</p></article>
-      <article><h3>虚拟卡 2</h3><p>卡号 DEMO-002</p><p>卡密 SAMPLE-002</p></article>
-      <button class="secondary" id="hide" type="button">隐藏查询结果</button>
+      <h2 id="result-title">我的京东卡</h2>
+      <div id="cards"></div>
+      <button class="secondary" id="hide" type="button">隐藏卡号和卡密</button>
+      <p id="copy-status" role="status"></p>
     </section>
-    <footer><p>另可打开查询服务的状态页。如果页面显示 <code>"ok":true</code>，说明该网络能访问服务。</p>
-      <a href="https://bjjralybdcuczwllxbvo.supabase.co/functions/v1/prize-system/health" target="_blank" rel="noopener noreferrer">检查查询服务</a>
-    </footer>
+    <footer><p>请妥善保管卡号和卡密。如信息有误，请联系活动管理员核对。</p></footer>
   </main>
   <script>
+    const endpoint = 'https://bjjralybdcuczwllxbvo.supabase.co/functions/v1/prize-system/cards/public/ee7f0aaada0b7fb4acd144ddcc96fea723f323c12912c5a3'
     const form = document.getElementById('claim')
     const nameInput = document.getElementById('employee-name')
     const numberInput = document.getElementById('employee-number')
     const result = document.getElementById('result')
     const error = document.getElementById('error')
+    const status = document.getElementById('status')
+    const retry = document.getElementById('retry')
+    const submit = document.getElementById('submit')
+    const cards = document.getElementById('cards')
+    const copyStatus = document.getElementById('copy-status')
+    let ready = false
+    let lookup
+
     function clearResult() {
+      if (lookup) lookup.abort()
+      lookup = undefined
+      submit.disabled = !ready
+      submit.textContent = '查询我的京东卡'
+      cards.replaceChildren()
+      copyStatus.textContent = ''
       result.hidden = true
       error.hidden = true
     }
-    form.addEventListener('input', clearResult)
-    form.addEventListener('submit', event => {
-      event.preventDefault()
+
+    async function checkStatus() {
+      ready = false
       clearResult()
-      if (nameInput.value.trim() === '测试员工' && numberInput.value.trim() === 'TEST001') {
-        result.hidden = false
-      } else {
-        error.textContent = '请使用页面给出的虚拟姓名和工号。'
+      retry.hidden = true
+      status.hidden = false
+      status.textContent = '正在连接领取服务…'
+      try {
+        const response = await fetch(endpoint, {cache:'no-store'})
+        if (!response.ok) throw new Error('无法连接')
+        const data = await response.json()
+        ready = data.ready === true
+        if (!ready) status.textContent = data.message || '本批次暂未开放领取。'
+        status.hidden = ready
+      } catch {
+        status.textContent = '暂时无法连接领取服务，请检查网络后重试。'
+        retry.hidden = false
+      }
+      submit.disabled = !ready
+    }
+
+    function cardField(label, value) {
+      const group = document.createElement('div')
+      const caption = document.createElement('p')
+      caption.textContent = label
+      const row = document.createElement('div')
+      row.className = 'card-value'
+      const code = document.createElement('code')
+      code.textContent = value
+      const copy = document.createElement('button')
+      copy.type = 'button'
+      copy.className = 'secondary'
+      copy.textContent = '复制' + label
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(value)
+          copyStatus.textContent = label + '已复制'
+        } catch {
+          copyStatus.textContent = '请长按' + label + '复制。'
+        }
+      })
+      row.append(code, copy)
+      group.append(caption, row)
+      return group
+    }
+
+    form.addEventListener('input', clearResult)
+    form.addEventListener('submit', async event => {
+      event.preventDefault()
+      if (!ready || lookup) return
+      clearResult()
+      const employeeName = nameInput.value.trim()
+      const employeeNo = numberInput.value.trim()
+      if (!employeeName || !employeeNo) {
+        error.textContent = '请完整填写姓名和工号。'
         error.hidden = false
+        return
+      }
+      const controller = new AbortController()
+      lookup = controller
+      submit.disabled = true
+      submit.textContent = '正在查询…'
+      try {
+        const response = await fetch(endpoint + '/query', {
+          method: 'POST',
+          headers: {'content-type':'application/json'},
+          body: JSON.stringify({employeeName, employeeNo}),
+          cache: 'no-store',
+          signal: controller.signal
+        })
+        const data = await response.json()
+        if (lookup !== controller || document.hidden) return
+        if (!response.ok) {
+          error.textContent = data.message || '查询失败，请稍后重试。'
+          error.hidden = false
+          return
+        }
+        const list = Array.isArray(data.cards) ? data.cards : []
+        if (list.length === 0) throw new Error('没有卡片')
+        document.getElementById('result-title').textContent = '我的京东卡 · ' + list.length + ' 张'
+        for (const [index, card] of list.entries()) {
+          const item = document.createElement('article')
+          const heading = document.createElement('h3')
+          heading.textContent = '京东卡 ' + (index + 1)
+          item.append(heading, cardField('卡号',card.cardNumber), cardField('卡密',card.cardPassword))
+          cards.append(item)
+        }
+        result.hidden = false
+      } catch {
+        if (lookup === controller) {
+          error.textContent = '暂时无法完成查询，请稍后重试。'
+          error.hidden = false
+        }
+      } finally {
+        if (lookup === controller) {
+          lookup = undefined
+          submit.disabled = !ready
+          submit.textContent = '查询我的京东卡'
+        }
       }
     })
     document.getElementById('hide').addEventListener('click', clearResult)
+    retry.addEventListener('click', checkStatus)
+    document.addEventListener('visibilitychange', () => { if (document.hidden) clearResult() })
+    window.addEventListener('pagehide', clearResult)
+    checkStatus()
   </script>
 </body>
 </html>
