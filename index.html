@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>京东卡领取连通性测试</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #243d32; background: #f4f7f5 }
+    * { box-sizing: border-box }
+    body { margin: 0; min-height: 100dvh }
+    header { padding: 20px 24px; background: white; border-bottom: 1px solid #e2e9e4; font-weight: 650 }
+    main { max-width: 520px; margin: auto; padding: 38px 22px }
+    h1 { font-size: 28px; margin: 0 0 14px }
+    p, footer { font-size: 14px; line-height: 1.8; color: #52685d }
+    .note { background: #e8efe9; padding: 13px 16px; border-radius: 8px }
+    form { display: grid; gap: 10px; margin: 24px 0 }
+    label { font-size: 14px; font-weight: 650 }
+    input, button { font: inherit; min-width: 0; padding: 13px; border-radius: 8px }
+    input { background: white; border: 1px solid #cad9d0; margin-bottom: 6px }
+    button { border: 0; background: #256c4a; color: white; cursor: pointer }
+    .secondary { background: transparent; color: #256c4a; border: 1px solid #adc7b7 }
+    a { color: #256c4a }
+    :focus-visible { outline: 2px solid #256c4a; outline-offset: 3px }
+    article { background: white; border: 1px solid #dde7e0; padding: 16px; margin: 12px 0; border-radius: 10px }
+    article h3 { margin: 0 0 10px; font-size: 17px }
+    article p { margin: 5px 0; overflow-wrap: anywhere }
+    h2 { font-size: 19px }
+    .error { color: #a22828 }
+    [hidden] { display: none !important }
+  </style>
+</head>
+<body>
+  <header>员工福利 · 京东卡领取</header>
+  <main>
+    <h1>京东卡领取连通性测试</h1>
+    <p>此页用于在手机流量和微信中测试 GitHub Pages 访问。请使用下方虚拟身份查询。</p>
+    <p class="note">姓名填「测试员工」，工号填「TEST001」。</p>
+    <form id="claim">
+      <label for="employee-name">姓名</label>
+      <input id="employee-name" type="text" required autocomplete="off" maxlength="30" placeholder="测试员工">
+      <label for="employee-number">工号</label>
+      <input id="employee-number" type="text" required autocomplete="off" maxlength="30" placeholder="TEST001">
+      <button type="submit">查询虚拟卡片</button>
+    </form>
+    <p class="error" id="error" role="alert" hidden></p>
+    <section id="result" aria-live="polite" hidden>
+      <h2>查询成功 · 2 张虚拟卡</h2>
+      <article><h3>虚拟卡 1</h3><p>卡号 DEMO-001</p><p>卡密 SAMPLE-001</p></article>
+      <article><h3>虚拟卡 2</h3><p>卡号 DEMO-002</p><p>卡密 SAMPLE-002</p></article>
+      <button class="secondary" id="hide" type="button">隐藏查询结果</button>
+    </section>
+    <footer><p>另可打开查询服务的状态页。如果页面显示 <code>"ok":true</code>，说明该网络能访问服务。</p>
+      <a href="https://bjjralybdcuczwllxbvo.supabase.co/functions/v1/prize-system/health" target="_blank" rel="noopener noreferrer">检查查询服务</a>
+    </footer>
+  </main>
+  <script>
+    const form = document.getElementById('claim')
+    const nameInput = document.getElementById('employee-name')
+    const numberInput = document.getElementById('employee-number')
+    const result = document.getElementById('result')
+    const error = document.getElementById('error')
+    function clearResult() {
+      result.hidden = true
+      error.hidden = true
+    }
+    form.addEventListener('input', clearResult)
+    form.addEventListener('submit', event => {
+      event.preventDefault()
+      clearResult()
+      if (nameInput.value.trim() === '测试员工' && numberInput.value.trim() === 'TEST001') {
+        result.hidden = false
+      } else {
+        error.textContent = '请使用页面给出的虚拟姓名和工号。'
+        error.hidden = false
+      }
+    })
+    document.getElementById('hide').addEventListener('click', clearResult)
+  </script>
+</body>
+</html>
